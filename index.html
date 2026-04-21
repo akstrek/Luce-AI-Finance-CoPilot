@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Luce — AI Finance Copilot</title>
+    
+    <script>
+      // Suppress the iframe env fetch polyfill clash
+      if (typeof window !== 'undefined') {
+        try {
+          const fetchDescriptor = Object.getOwnPropertyDescriptor(window, 'fetch');
+          if (fetchDescriptor && !fetchDescriptor.set && fetchDescriptor.configurable) {
+            const originalFetch = window.fetch;
+            Object.defineProperty(window, 'fetch', {
+              get: () => originalFetch,
+              set: () => { /* Suppress error when libraries try to overwrite window.fetch */ },
+              configurable: true
+            });
+          }
+        } catch(e) {}
+        
+        window.addEventListener('error', function(e) {
+          if (e.message && e.message.includes('fetch of #<Window> which has only a getter')) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+          }
+        });
+      }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:opsz,wght@9..40,300;400;500&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
