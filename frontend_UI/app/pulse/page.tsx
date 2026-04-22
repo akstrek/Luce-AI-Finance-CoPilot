@@ -1,6 +1,72 @@
+'use client'
+import { useEffect, useState, useCallback } from 'react'
 import MetricTile from '@/components/MetricTile'
 
+interface Metrics {
+  monthlySpend: number
+  forecast: number
+  savingsRate: number
+  savingsDelta: number
+  anomalyCount: number
+  anomalySum: number
+  forecastAccuracy: number
+}
+
+const FALLBACK: Metrics = {
+  monthlySpend: 42180,
+  forecast: 38400,
+  savingsRate: 23.4,
+  savingsDelta: 2.1,
+  anomalyCount: 3,
+  anomalySum: 8240,
+  forecastAccuracy: 91.2,
+}
+
 export default function PulsePage() {
+  const [metrics, setMetrics] = useState<Metrics>(FALLBACK)
+
+  const loadData = useCallback(() => {
+    Promise.all([
+      fetch('/api/anomalies').then(r => r.json()).catch(() => []),
+      fetch('/api/forecast').then(r => r.json()).catch(() => ({ categories: [] })),
+    ]).then(([anomalies, forecastData]) => {
+      const anomalyCount = Array.isArray(anomalies) ? anomalies.length : 0
+      const anomalySum = Array.isArray(anomalies)
+        ? anomalies.reduce((s: number, a: { amount: number }) => s + Math.abs(a.amount), 0)
+        : 0
+
+      const cats: { actual: number; forecast: number }[] = forecastData.categories ?? []
+      const totalActual = cats.reduce((s, c) => s + c.actual, 0)
+      const totalForecast = cats.reduce((s, c) => s + c.forecast, 0)
+
+      // Forecast accuracy: 100 - MAPE across categories where forecast > 0
+      const mapeItems = cats.filter(c => c.forecast > 0)
+      const mape = mapeItems.length > 0
+        ? mapeItems.reduce((s, c) => s + Math.abs((c.actual - c.forecast) / c.forecast), 0) / mapeItems.length * 100
+        : 8.8
+      const forecastAccuracy = Math.max(0, Math.min(100, 100 - mape))
+
+      setMetrics(prev => ({
+        ...prev,
+        monthlySpend: totalActual > 0 ? totalActual : prev.monthlySpend,
+        forecast: totalForecast > 0 ? totalForecast : prev.forecast,
+        anomalyCount: anomalyCount > 0 ? anomalyCount : (anomalies.length === 0 ? 0 : prev.anomalyCount),
+        anomalySum,
+        forecastAccuracy: mapeItems.length > 0 ? Math.round(forecastAccuracy * 10) / 10 : prev.forecastAccuracy,
+      }))
+    })
+  }, [])
+
+  useEffect(() => {
+    loadData()
+    window.addEventListener('data-refresh', loadData)
+    return () => window.removeEventListener('data-refresh', loadData)
+  }, [loadData])
+
+  const spendBarPct = metrics.forecast > 0
+    ? Math.min(100, Math.round((metrics.monthlySpend / metrics.forecast) * 100))
+    : 78
+
   return (
     <section id="pulse">
       <div className="section-content pulse-content">
@@ -12,9 +78,9 @@ export default function PulsePage() {
           <MetricTile
             number="[ 1.0 ]"
             label="MONTHLY SPEND"
-            value="₹42,180"
-            sub="vs ₹38,400 forecast"
-            barWidth="78%"
+            value={`₹${metrics.monthlySpend.toLocaleString('en-IN')}`}
+            sub={`vs ₹${metrics.forecast.toLocaleString('en-IN')} forecast`}
+            barWidth={`${spendBarPct}%`}
             barColor="var(--accent)"
             icon={
               <svg width="20" height="20" stroke="var(--accent)" fill="none" strokeWidth="1.5" strokeLinecap="round">
@@ -26,9 +92,9 @@ export default function PulsePage() {
           <MetricTile
             number="[ 2.0 ]"
             label="SAVINGS RATE"
-            value="23.4%"
-            sub="+2.1% vs last month"
-            barWidth="64%"
+            value={`${metrics.savingsRate}%`}
+            sub={`${metrics.savingsDelta >= 0 ? '+' : ''}${metrics.savingsDelta}% vs last month`}
+            barWidth={`${Math.round(metrics.savingsRate)}%`}
             barColor="var(--accent)"
             icon={
               <svg width="20" height="20" stroke="var(--accent)" fill="none" strokeWidth="1.5" strokeLinecap="round">
@@ -40,9 +106,9 @@ export default function PulsePage() {
           <MetricTile
             number="[ 3.0 ]"
             label="ANOMALIES"
-            value="3 flagged"
-            sub="₹8,240 unusual activity"
-            barWidth="40%"
+            value={`${metrics.anomalyCount} flagged`}
+            sub={`₹${metrics.anomalySum.toLocaleString('en-IN')} unusual activity`}
+            barWidth={`${Math.min(100, metrics.anomalyCount * 10)}%`}
             barColor="var(--red)"
             alert
             icon={
@@ -56,9 +122,9 @@ export default function PulsePage() {
           <MetricTile
             number="[ 4.0 ]"
             label="FORECAST ACCURACY"
-            value="91.2%"
+            value={`${metrics.forecastAccuracy}%`}
             sub="Next 30 days"
-            barWidth="91%"
+            barWidth={`${Math.round(metrics.forecastAccuracy)}%`}
             barColor="var(--accent)"
             icon={
               <svg width="20" height="20" stroke="var(--accent)" fill="none" strokeWidth="1.5" strokeLinecap="round">

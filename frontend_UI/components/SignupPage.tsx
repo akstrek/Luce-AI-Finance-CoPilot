@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
+import { useRouter } from 'next/navigation';
 
 interface SignupPageProps {
   onBack?: () => void;
@@ -12,6 +14,39 @@ interface SignupPageProps {
 
 export default function SignupPage({ onBack, onLogin }: SignupPageProps) {
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [consent, setConsent] = useState(false)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const router = useRouter()
+
+  const handleBack = onBack ?? (() => router.push('/auth'))
+  const handleLogin = onLogin ?? (() => router.push('/auth'))
+
+  const handleSignUp = async () => {
+    setError('')
+    if (!consent) {
+      setError('Please agree to CSV data storage before continuing.')
+      return
+    }
+    setLoading(true)
+    const supabase = createClient()
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { first_name: firstName, last_name: lastName } },
+    })
+    if (error) {
+      setError(error.message)
+      setLoading(false)
+    } else {
+      router.push('/')
+      router.refresh()
+    }
+  }
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -29,7 +64,7 @@ export default function SignupPage({ onBack, onLogin }: SignupPageProps) {
     visible: {
       opacity: 1,
       y: 0,
-      transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] }
+      transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] }
     },
   };
 
@@ -72,7 +107,7 @@ export default function SignupPage({ onBack, onLogin }: SignupPageProps) {
       {/* Right Panel - 60% - Sign Up Form */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 md:px-12 relative py-20 lg:py-0">
         <button
-          onClick={onBack}
+          onClick={handleBack}
           className="lg:fixed lg:top-8 lg:left-8 mb-12 lg:mb-0 text-[10px] uppercase font-bold tracking-widest text-white/40 hover:text-[#00ff50] transition-colors flex items-center gap-2 self-start"
         >
           <ArrowLeft size={14} strokeWidth={3} /> Back to LUCE
@@ -100,6 +135,8 @@ export default function SignupPage({ onBack, onLogin }: SignupPageProps) {
                 <Input
                    type="text"
                    placeholder="Luce"
+                   value={firstName}
+                   onChange={e => setFirstName(e.target.value)}
                    className="bg-[#0a140a]/80 border-[#00ff50]/10 focus-visible:ring-[#00ff50]/30 text-white h-12"
                 />
               </div>
@@ -108,6 +145,8 @@ export default function SignupPage({ onBack, onLogin }: SignupPageProps) {
                 <Input
                    type="text"
                    placeholder="Pilot"
+                   value={lastName}
+                   onChange={e => setLastName(e.target.value)}
                    className="bg-[#0a140a]/80 border-[#00ff50]/10 focus-visible:ring-[#00ff50]/30 text-white h-12"
                 />
               </div>
@@ -118,6 +157,8 @@ export default function SignupPage({ onBack, onLogin }: SignupPageProps) {
               <Input
                 type="email"
                 placeholder="luce@aurora.ai"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
                 className="bg-[#0a140a]/80 border-[#00ff50]/10 focus-visible:ring-[#00ff50]/30 text-white h-12"
               />
             </motion.div>
@@ -128,6 +169,8 @@ export default function SignupPage({ onBack, onLogin }: SignupPageProps) {
                 <Input
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
                     className="bg-[#0a140a]/80 border-[#00ff50]/10 focus-visible:ring-[#00ff50]/30 text-white h-12 pr-12"
                 />
                 <button
@@ -140,11 +183,30 @@ export default function SignupPage({ onBack, onLogin }: SignupPageProps) {
               </div>
             </motion.div>
 
+            <motion.div variants={itemVariants} className="flex items-start gap-3 pt-2">
+              <input
+                id="csv-consent"
+                type="checkbox"
+                checked={consent}
+                onChange={e => setConsent(e.target.checked)}
+                className="mt-0.5 accent-[#00ff50] w-4 h-4 cursor-pointer"
+              />
+              <label htmlFor="csv-consent" className="text-xs text-white/40 leading-relaxed cursor-pointer">
+                I consent to LUCE securely storing my uploaded bank statements (CSV/PDF) to enable spending analysis. Raw account numbers are never stored.
+              </label>
+            </motion.div>
+
+            {error && (
+              <motion.p variants={itemVariants} className="text-xs text-red-400 ml-1">{error}</motion.p>
+            )}
+
             <motion.div variants={itemVariants} className="pt-4">
               <Button
+                onClick={handleSignUp}
+                disabled={loading}
                 className="w-full h-14 bg-[#00ff50] text-[#020402] hover:bg-[#00ff50]/90 font-bold text-lg tracking-tight rounded-xl shadow-[0_0_20px_rgba(0,255,80,0.2)] transition-all hover:scale-[1.01] active:scale-[0.98]"
               >
-                Create Account
+                {loading ? 'Creating account…' : 'Create Account'}
               </Button>
             </motion.div>
           </div>
@@ -153,7 +215,7 @@ export default function SignupPage({ onBack, onLogin }: SignupPageProps) {
             <p className="text-sm text-white/50">
               Already have an account?{' '}
               <button
-                onClick={onLogin}
+                onClick={handleLogin}
                 className="text-white hover:underline underline-offset-4 font-bold decoration-white/30"
               >
                 Sign in

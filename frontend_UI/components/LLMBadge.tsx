@@ -1,8 +1,23 @@
 'use client'
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 
 export default function LLMBadge() {
+  const [model, setModel] = useState(
+    process.env.NEXT_PUBLIC_LLM_MODEL ?? 'nvidia/nemotron-3-super-120b-a12b:free'
+  )
+
+  useEffect(() => {
+    fetch('/api/config')
+      .then(r => r.json())
+      .then(data => { if (data.llm_model) setModel(data.llm_model) })
+      .catch(() => {})
+  }, [])
+
+  const displayName = model.includes('/')
+    ? model.split('/')[1].split(':')[0].split('-')[0]
+    : model.split('-')[0]
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -17,7 +32,7 @@ export default function LLMBadge() {
         </div>
         <div className="flex flex-col">
           <span className="text-[8px] uppercase tracking-[0.2em] font-bold text-[#00ff50]/60 leading-none mb-1">Engine</span>
-          <span className="text-[10px] font-bold text-white/90 tracking-tight leading-none font-syne">Gemini 1.5 Flash</span>
+          <span className="text-[10px] font-bold text-white/90 tracking-tight leading-none font-syne capitalize">{displayName}</span>
         </div>
       </div>
     </motion.div>

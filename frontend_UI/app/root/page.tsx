@@ -39,8 +39,8 @@ export default function RootPage() {
           </div>
           <div>
             <div className="fh">[ CONNECT ]</div>
-            <a href="#" className="fl">GitHub</a>
-            <a href="#" className="fl">LinkedIn</a>
+            <a href="https://github.com/akstrek" className="fl" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a href="https://www.linkedin.com/in/amritanshuksingh/" className="fl" target="_blank" rel="noopener noreferrer">LinkedIn</a>
           </div>
           <div>
             <div className="fh">[ BUILT WITH ]</div>

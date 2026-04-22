@@ -1,33 +1,65 @@
 'use client'
 import React, { useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import LogoDiamond from '@/components/LogoDiamond'
+import { createClient } from '@/lib/supabase/client'
+import { logEvent } from '@/lib/log-event'
 
 export default function OrbitPage() {
   const [uploadProgress, setUploadProgress] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const router = useRouter()
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+
+    // Auth gate — redirect unauthenticated users before touching the API
+    const { data: { user } } = await createClient().auth.getUser()
+    if (!user) { router.push('/signup'); return }
+
     setIsUploading(true)
     setUploadProgress(0)
-    let progress = 0
+    setUploadError('')
+
+    // Simulate progress while the request is in-flight
+    let simProgress = 0
     const interval = setInterval(() => {
-      progress += Math.random() * 30
-      if (progress >= 100) {
-        progress = 100
-        setUploadProgress(100)
-        clearInterval(interval)
-        setTimeout(() => {
-          setIsUploading(false)
-          setUploadProgress(0)
-          document.getElementById('pulse')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }, 500)
-      } else {
-        setUploadProgress(progress)
+      simProgress += Math.random() * 15
+      if (simProgress < 90) setUploadProgress(simProgress)
+    }, 300)
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      clearInterval(interval)
+
+      if (!res.ok) {
+        const { error } = await res.json()
+        setUploadError(error ?? 'Upload failed')
+        setIsUploading(false)
+        setUploadProgress(0)
+        return
       }
-    }, 200)
+
+      setUploadProgress(100)
+      const { count, categories } = await res.json().catch(() => ({ count: 0, categories: {} }))
+      logEvent('upload_success', { count, categories })
+      window.dispatchEvent(new CustomEvent('data-refresh'))
+      setTimeout(() => {
+        setIsUploading(false)
+        setUploadProgress(0)
+        document.getElementById('pulse')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 500)
+    } catch {
+      clearInterval(interval)
+      setUploadError('Upload failed — please try again')
+      setIsUploading(false)
+      setUploadProgress(0)
+    }
   }
 
   return (
@@ -69,6 +101,9 @@ export default function OrbitPage() {
               &darr; Scroll to explore
             </div>
           </div>
+          {uploadError && (
+            <p style={{ marginTop: '12px', fontSize: '12px', color: 'var(--red)' }}>{uploadError}</p>
+          )}
         </div>
         <div className="hero-3d-logo">
           <div className="hero-3d-wrapper">

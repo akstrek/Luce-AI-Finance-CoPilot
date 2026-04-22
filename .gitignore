@@ -24,3 +24,11 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+.claude/
+frontend_UI/.next/
+frontend_UI/node_modules/
+frontend_UI/.env.local
+modal-venv/
+supabase/
+docs/superpowers/

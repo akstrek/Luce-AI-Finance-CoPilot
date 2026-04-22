@@ -1,8 +1,10 @@
 'use client'
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { createClient } from '@/lib/supabase/client';
+import { useRouter } from 'next/navigation';
 
 interface LoginPageProps {
   onLoginSuccess?: () => void;
@@ -10,7 +12,39 @@ interface LoginPageProps {
   onSignup?: () => void;
 }
 
-export default function LoginPage({ onLoginSuccess, onBack, onSignup }: LoginPageProps) {
+export default function LoginPage({ onSignup }: LoginPageProps) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
+  const router = useRouter()
+
+  const handleForgotPassword = async () => {
+    setError('')
+    if (!email) { setError('Enter your email address first.'); return }
+    const supabase = createClient()
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/profile&type=recovery`,
+    })
+    if (error) { setError(error.message); return }
+    setResetSent(true)
+  }
+
+  const handleSignIn = async () => {
+    setError('')
+    setLoading(true)
+    const supabase = createClient()
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      setError(error.message)
+      setLoading(false)
+    } else {
+      router.push('/')
+      router.refresh()
+    }
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -47,6 +81,8 @@ export default function LoginPage({ onLoginSuccess, onBack, onSignup }: LoginPag
             <Input
               type="email"
               placeholder="name@company.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
               className="bg-[#0a140a]/80 border-[#00ff50]/10 border-white/5 focus-visible:ring-[#00ff50]/30 text-white h-12"
             />
           </div>
@@ -58,15 +94,32 @@ export default function LoginPage({ onLoginSuccess, onBack, onSignup }: LoginPag
             <Input
               type="password"
               placeholder="••••••••"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSignIn()}
               className="bg-[#0a140a]/80 border-[#00ff50]/10 border-white/5 focus-visible:ring-[#00ff50]/30 text-white h-12"
             />
           </div>
 
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              className="text-[10px] text-[#00ff50]/50 hover:text-[#00ff50] transition-colors uppercase tracking-widest font-semibold"
+            >
+              Forgot password?
+            </button>
+          </div>
+
+          {error && <p className="text-xs text-red-400 ml-1">{error}</p>}
+          {resetSent && <p className="text-xs text-[#00ff50]/80 ml-1">Reset link sent — check your email.</p>}
+
           <Button
             className="w-full h-12 mt-4 bg-white text-black hover:bg-white/90 font-bold tracking-tight rounded-xl transition-all hover:scale-[1.01] active:scale-[0.98]"
-            onClick={onLoginSuccess}
+            onClick={handleSignIn}
+            disabled={loading}
           >
-            Sign In
+            {loading ? 'Signing in…' : 'Sign In'}
           </Button>
         </div>
 
@@ -75,7 +128,7 @@ export default function LoginPage({ onLoginSuccess, onBack, onSignup }: LoginPag
             Not on LUCE?{' '}
             <button
               className="text-white hover:underline underline-offset-4 font-bold decoration-white/30"
-              onClick={onSignup}
+              onClick={onSignup ?? (() => router.push('/signup'))}
             >
               Create an account
             </button>
